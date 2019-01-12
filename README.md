@@ -16,15 +16,34 @@ Use `make build TARGET=1.2.3.4` to build the go binary aswell as the bpf bytecod
 
 ## Testing
 
+Build application
 ```
-$ docker run -d --name nginx nginx
-
-$ docker inspect 3b2a0133732d -f "{{.NetworkSettings.IPAddress}}"
-> 172.17.0.2
-
-$ make build TARGET=172.17.0.1
-$ ./udpf -iface lo
+$ make build
+$ sudo ./udpf -iface lo -target 172.17.0.2
 ```
+
+..send packets..
+```
+$ echo "hello" | nc -c -u 127.0.0.1 8125
+```
+
+..check that they're being cloned..
+```
+$ sudo tcpdump -vvXX -eni any udp port 8125
+15:34:18.416219 52:54:00:64:b4:4a > 52:54:00:23:a4:5c, ethertype IPv4 (0x0800), length 51: 127.0.0.1.56548 > 192.168.122.23.8125: UDP, length 9
+	0x0000:  5254 0023 a45c 5254 0064 b44a 0800 4500  RT.#.\RT.d.J..E.
+	0x0010:  0025 4000 4000 4011 4107 7f00 0001 c0a8  .%@.@.@.A.......
+	0x0020:  7a17 dce4 1fbd 0011 4f7a 6f6d 6567 616c  z.......Ozomegal
+	0x0030:  756c 0a                                  ul.
+
+```
+
+recompile bytecode with new endpoint
+```
+$ curl -i "http://localhost:8080/recompile?target=reddit.com"
+```
+
+### Debugging
 
 ```
 # check if progs are loaded properly
@@ -54,16 +73,12 @@ $ echo 1 > /proc/sys/net/ipv4/ip_forward
 # to update the fib table
 $ ping -c 1 <TARGET>
 
-# a packet sent to lo
-$ sudo tcpdump -XX -eni virbr0 udp port 8125
-15:34:18.416219 52:54:00:64:b4:4a > 52:54:00:23:a4:5c, ethertype IPv4 (0x0800), length 51: 127.0.0.1.56548 > 192.168.122.23.8125: UDP, length 9
-	0x0000:  5254 0023 a45c 5254 0064 b44a 0800 4500  RT.#.\RT.d.J..E.
-	0x0010:  0025 4000 4000 4011 4107 7f00 0001 c0a8  .%@.@.@.A.......
-	0x0020:  7a17 dce4 1fbd 0011 4f7a 6f6d 6567 616c  z.......Ozomegal
-	0x0030:  756c 0a                                  ul.
+# you might want to disable checksum offloading
+sudo ethtool --offload <device> rx off tx off ; sudo ethtool -K <device> gso off
 
 ```
 
 ## TODO
 
 * fix fib lookup if neighbor is not known (send packet up the stack)
+* support ipv6
