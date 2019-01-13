@@ -9,8 +9,8 @@ import (
 	"github.com/vishvananda/netlink"
 )
 
-func createQdisc(link netlink.Link) (func(), error) {
-	qdisc := &netlink.GenericQdisc{
+func qdiscAttrs(link netlink.Link) *netlink.GenericQdisc {
+	return &netlink.GenericQdisc{
 		QdiscAttrs: netlink.QdiscAttrs{
 			LinkIndex: link.Attrs().Index,
 			Handle:    netlink.MakeHandle(0xffff, 0),
@@ -18,18 +18,25 @@ func createQdisc(link netlink.Link) (func(), error) {
 		},
 		QdiscType: "clsact",
 	}
-	cleanup := func() {
-		netlink.QdiscDel(qdisc)
-	}
-	if err := netlink.QdiscReplace(qdisc); err != nil {
-		return nil, fmt.Errorf("netlink: replacing qdisc for %s failed: %s", link.Attrs().Name, err)
-	}
-	log.Printf("netlink: replacing qdisc for %s succeeded\n", link.Attrs().Name)
-	return cleanup, nil
 }
 
-func createFilter(prog *elf.SchedProgram, link netlink.Link, parent uint32) (func(), error) {
-	filter := &netlink.U32{
+func createQdisc(link netlink.Link) error {
+	qdisc := qdiscAttrs(link)
+	netlink.QdiscDel(qdisc)
+	if err := netlink.QdiscAdd(qdisc); err != nil {
+		return fmt.Errorf("netlink: replacing qdisc for %s failed: %s", link.Attrs().Name, err)
+	}
+	log.Printf("netlink: replacing qdisc for %s succeeded\n", link.Attrs().Name)
+	return nil
+}
+
+func deleteQdisc(link netlink.Link) error {
+	qdisc := qdiscAttrs(link)
+	return netlink.QdiscDel(qdisc)
+}
+
+func filterAttrs(prog *elf.SchedProgram, link netlink.Link, parent uint32) *netlink.U32 {
+	return &netlink.U32{
 		FilterAttrs: netlink.FilterAttrs{
 			LinkIndex: link.Attrs().Index,
 			Parent:    parent,
@@ -45,13 +52,19 @@ func createFilter(prog *elf.SchedProgram, link netlink.Link, parent uint32) (fun
 			},
 		},
 	}
-	cleanup := func() {
-		netlink.FilterDel(filter)
-	}
+}
+
+func createFilter(prog *elf.SchedProgram, link netlink.Link, parent uint32) error {
+	filter := filterAttrs(prog, link, parent)
 	err := netlink.FilterAdd(filter)
 	if err != nil {
-		return cleanup, fmt.Errorf("failed to add filter: %s", err)
+		return fmt.Errorf("failed to add filter: %s", err)
 	}
 	log.Printf("successfully added filter for %s \n", prog.Name)
-	return cleanup, nil
+	return nil
+}
+
+func deleteFilter(prog *elf.SchedProgram, link netlink.Link, parent uint32) error {
+	filter := filterAttrs(prog, link, parent)
+	return netlink.FilterDel(filter)
 }

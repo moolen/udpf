@@ -49,44 +49,40 @@ func main() {
 	cleanup()
 }
 
-func configure() (func(), error) {
+func configure() error {
 	// FIXME: we need this to populate kernels fib table
 	// it should be somehow possible to do this on the tc layer
 	conn, err := net.Dial("udp", fmt.Sprintf("%s:%d", cfg.Hostname, cfg.Port))
 	if err != nil {
-		return nil, err
+		return err
 	}
 	defer conn.Close()
 	_, err = conn.Write([]byte("\n"))
 	if err != nil {
-		return nil, err
+		return err
 	}
-
 	mod, err := compile(cfg)
 	if err != nil {
-		return nil, err
+		return err
 	}
 	// setup tc qdisc & filter
 	link, err := netlink.LinkByName(cfg.Interface)
 	if err != nil {
-		return nil, err
+		return err
 	}
-	cleanupQdisc, err := createQdisc(link)
+	err = createQdisc(link)
 	if err != nil {
-		return nil, err
+		return err
 	}
-	cleanupIngressAct, err := createFilter(
+	err = createFilter(
 		mod.SchedProgram("sched_act/ingress_action"),
 		link,
 		netlink.HANDLE_MIN_INGRESS,
 	)
 	if err != nil {
-		return nil, err
+		return err
 	}
-	return func() {
-		cleanupQdisc()
-		cleanupIngressAct()
-	}, nil
+	return nil
 }
 
 func cleanup() {
@@ -96,14 +92,7 @@ func cleanup() {
 	if err != nil {
 		panic(err)
 	}
-	err = netlink.QdiscDel(&netlink.GenericQdisc{
-		QdiscAttrs: netlink.QdiscAttrs{
-			LinkIndex: link.Attrs().Index,
-			Handle:    netlink.MakeHandle(0xffff, 0),
-			Parent:    netlink.HANDLE_CLSACT,
-		},
-		QdiscType: "clsact",
-	})
+	deleteQdisc(link)
 	if err != nil {
 		log.Printf("failed to remove qdisc from %s", link.Attrs().Name)
 	}

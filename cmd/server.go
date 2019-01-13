@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	"net/http"
 	"strconv"
@@ -26,7 +27,13 @@ func handler(w http.ResponseWriter, r *http.Request) {
 		}
 		cfg.UpdatePort(intPort)
 	}
-	configure()
+	err = configure()
+	if err != nil {
+		fmt.Fprintf(w, "error configuring: %s", err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+	w.WriteHeader(http.StatusOK)
 }
 
 func runServer() {
