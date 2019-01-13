@@ -7,7 +7,6 @@ services:
       - NET_ADMIN
       - SYS_ADMIN
     privileged: true
-    #network_mode: host
     restart: always
     ports:
       - "8080:8080"

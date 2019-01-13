@@ -16,31 +16,32 @@ Use `make build TARGET=1.2.3.4` to build the go binary aswell as the bpf bytecod
 
 ## Testing
 
-Build application
+use docker-compose
 ```
-$ make build
+$ docker-compose build; docker-compose up
 
-# make sure there's someone at 172.17.0.2
-$ sudo ./udpf -iface lo -target 172.17.0.2
-```
+# get address of udpf
+$ docker inspect udpf_udpf_1 -f "{{.NetworkSettings.Networks.udpf_default.IPAddress}}"
+> 172.22.0.4
 
-..send packets..
-```
-$ echo "hello" | nc -c -u 127.0.0.1 8125
-```
+# continuously send packets there
+$ watch 'echo "omegalul" | nc -c -u 172.22.0.4 8125'
 
-..check that they're being cloned..
-```
+# dump udp traffic on all devices
 $ sudo tcpdump -vvXX -eni any udp port 8125
-15:34:18.416219 52:54:00:64:b4:4a > 52:54:00:23:a4:5c, ethertype IPv4 (0x0800), length 51: 127.0.0.1.56548 > 172.17.0.2.8125: UDP, length 9
-	0x0000:  5254 0023 a45c 5254 0064 b44a 0800 4500  RT.#.\RT.d.J..E.
-	0x0010:  0025 4000 4000 4011 4107 7f00 0001 c0a8  .%@.@.@.A.......
-	0x0020:  7a17 dce4 1fbd 0011 4f7a 6f6d 6567 616c  z.......Ozomegal
-	0x0030:  756c 0a                                  ul.
+# [bridge -> udpf] and [udpf -> target]
+172.22.0.1.56511 > 172.22.0.4.8125: [udp sum ok] UDP, length 9
+172.22.0.4.56511 > 172.22.0.2.8125: [udp sum ok] UDP, length 9
+
+# check bpf debug output
+$ sudo tc exec bpf dbg
+nc-17894 [005] ..s1 16840.571481: 0: target: 33560236 48415
+nc-17894 [005] ..s1 16840.571505: 0: fib lookup successful: addr= 33560236, dmac= ffff8b984a543c22, smac= ffff8b984a543c1c
+nc-17894 [005] ..s1 16840.571513: 0: clone redirect succeeded
 
 ```
 
-recompile bytecode with new endpoint
+now recompile bytecode with new endpoint
 ```
 $ curl -i "http://localhost:8080/reconfigure?target=reddit.com"
 ```
