@@ -29,7 +29,7 @@ $ watch 'echo "omegalul" | nc -c -u 172.22.0.4 8125'
 
 # dump udp traffic on all devices
 $ sudo tcpdump -vvXX -eni any udp port 8125
-# [bridge -> udpf] and [udpf -> target]
+# [bridge -> udpf] and [udpf -> target_one]
 172.22.0.1.56511 > 172.22.0.4.8125: [udp sum ok] UDP, length 9
 172.22.0.4.56511 > 172.22.0.2.8125: [udp sum ok] UDP, length 9
 
@@ -44,6 +44,14 @@ nc-17894 [005] ..s1 16840.571513: 0: clone redirect succeeded
 now recompile bytecode with new endpoint
 ```
 $ curl -i "http://localhost:8080/reconfigure?target=reddit.com"
+
+
+# traffic should go to target_two
+$ sudo tcpdump -vvXX -eni any udp port 8125
+# [bridge -> udpf] and [udpf -> target_two]
+172.22.0.1.56511 > 172.22.0.4.8125: [udp sum ok] UDP, length 9
+172.22.0.4.56511 > 172.22.0.3.8125: [udp sum ok] UDP, length 9
+
 ```
 
 ### Debugging
