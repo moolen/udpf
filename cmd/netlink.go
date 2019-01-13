@@ -22,9 +22,9 @@ func createQdisc(link netlink.Link) (func(), error) {
 		netlink.QdiscDel(qdisc)
 	}
 	if err := netlink.QdiscReplace(qdisc); err != nil {
-		return nil, fmt.Errorf("netlink: creating qdisc for %s failed: %s", link.Attrs().Name, err)
+		return nil, fmt.Errorf("netlink: replacing qdisc for %s failed: %s", link.Attrs().Name, err)
 	}
-	log.Printf("netlink: creating qdisc for %s succeeded\n", link.Attrs().Name)
+	log.Printf("netlink: replacing qdisc for %s succeeded\n", link.Attrs().Name)
 	return cleanup, nil
 }
 

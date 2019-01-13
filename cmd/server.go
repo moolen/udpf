@@ -15,9 +15,7 @@ func handler(w http.ResponseWriter, r *http.Request) {
 	}
 	target := r.Form.Get("target")
 	if target != "" {
-		cfg.mu.Lock()
-		cfg.targetHost = target
-		cfg.mu.Unlock()
+		cfg.UpdateHostname(target)
 	}
 	port := r.Form.Get("port")
 	if port != "" {
@@ -26,15 +24,13 @@ func handler(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusBadRequest)
 			return
 		}
-		cfg.mu.Lock()
-		cfg.targetPort = intPort
-		cfg.mu.Unlock()
+		cfg.UpdatePort(intPort)
 	}
-	compile(cfg)
+	configure()
 }
 
 func runServer() {
-	http.HandleFunc("/recompile", handler)
+	http.HandleFunc("/reconfigure", handler)
 	log.Fatal(http.ListenAndServe(":8080", nil))
 
 }

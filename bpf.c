@@ -55,10 +55,7 @@ int ingress_action(struct __sk_buff *skb)
     // grab original destination addr
     __u32 src_ip = ip->saddr;
     __u32 dst_ip = ip->daddr;
-    __u32 target = TARGET_ADDR;
-
-    // transform __be16
-    __u16 udp_dest = (udp->dest >> 8) | (udp->dest << 8);
+    __u32 target = {{.Address}};
 
     // we handle only UDP
     if (ip->protocol != IPPROTO_UDP){
@@ -66,10 +63,10 @@ int ingress_action(struct __sk_buff *skb)
         return TC_ACT_OK;
     }
 
-    trace_printk("target: %lu\n", target);
+    trace_printk("target: %lu %lu\n", target, udp->dest);
 
     // handle only specific udp port
-    if (udp_dest != UDP_DEST_PORT){
+    if (udp->dest != {{.Port}}){
         return TC_ACT_UNSPEC;
     }
 

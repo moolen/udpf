@@ -1,6 +1,8 @@
 package main
 
 import (
+	"bytes"
+	"encoding/binary"
 	"flag"
 	"fmt"
 	"log"
@@ -13,35 +15,22 @@ import (
 	"github.com/vishvananda/netlink"
 )
 
-const (
-	bpfSource   = "bpf.c"
-	bpfBytecode = "bpf.o"
-)
-
 var (
-	cfg = &config{
-		mu: sync.Mutex{},
-	}
+	cfg *config
 )
-
-type config struct {
-	mu         sync.Mutex
-	iface      string
-	targetHost string
-	targetPort int
-}
 
 func main() {
-	flag.StringVar(&cfg.iface, "iface", "", "name of device")
-	flag.StringVar(&cfg.targetHost, "target", "", "target address")
-	flag.IntVar(&cfg.targetPort, "port", 8125, "target port")
+	var err error
+	iface := flag.String("iface", "", "name of device")
+	target := flag.String("target", "", "target address")
+	port := flag.Int("port", 8125, "target port")
 	flag.Parse()
-	log.Printf("%#v", cfg)
 
-	mod, err := compile(cfg)
+	cfg, err = newConfig(*iface, *target, *port)
 	if err != nil {
 		panic(err)
 	}
+	log.Printf("%#v", cfg)
 
 	var waiter sync.WaitGroup
 	waiter.Add(1)
@@ -53,36 +42,49 @@ func main() {
 		waiter.Done()
 	}()
 
-	// setup tc qdisc & filter
-	link, err := netlink.LinkByName(cfg.iface)
+	configure()
+	go runServer()
+	log.Printf("waiting for ctrl-c")
+	waiter.Wait()
+	cleanup()
+}
+
+func configure() (func(), error) {
+	mod, err := compile(cfg)
 	if err != nil {
-		panic(err)
+		return nil, err
+	}
+	// setup tc qdisc & filter
+	link, err := netlink.LinkByName(cfg.Interface)
+	if err != nil {
+		return nil, err
 	}
 	cleanupQdisc, err := createQdisc(link)
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
-	defer cleanupQdisc()
 	cleanupIngressAct, err := createFilter(
 		mod.SchedProgram("sched_act/ingress_action"),
 		link,
 		netlink.HANDLE_MIN_INGRESS,
 	)
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
-	defer cleanupIngressAct()
-
-	go runServer()
-	log.Printf("waiting for ctrl-c")
-	waiter.Wait()
-
-	cleanup(link)
+	return func() {
+		cleanupQdisc()
+		cleanupIngressAct()
+	}, nil
 }
 
-func cleanup(link netlink.Link) {
+func cleanup() {
 	log.Printf("cleaning up")
-	err := netlink.QdiscDel(&netlink.GenericQdisc{
+	// setup tc qdisc & filter
+	link, err := netlink.LinkByName(cfg.Interface)
+	if err != nil {
+		panic(err)
+	}
+	err = netlink.QdiscDel(&netlink.GenericQdisc{
 		QdiscAttrs: netlink.QdiscAttrs{
 			LinkIndex: link.Attrs().Index,
 			Handle:    netlink.MakeHandle(0xffff, 0),
@@ -96,11 +98,56 @@ func cleanup(link netlink.Link) {
 	log.Printf("done")
 }
 
-func (c *config) targetAddr() (uint32, error) {
-	ips, err := net.LookupIP(c.targetHost)
-	if err != nil {
-		return 0, fmt.Errorf("could not lookup hostname: %s", err)
+type config struct {
+	mu        sync.Mutex
+	Interface string
+	Hostname  string
+	Address   uint32
+	Port      uint16
+}
+
+func newConfig(iface string, hostname string, port int) (conf *config, err error) {
+	conf = &config{
+		mu:        sync.Mutex{},
+		Interface: iface,
 	}
-	log.Printf("resolved %s to %s", c.targetHost, ips[0].String())
-	return transformBE(ips[0].To4()), nil
+	conf.UpdatePort(port)
+	err = conf.UpdateHostname(hostname)
+	if err != nil {
+		return
+	}
+	return
+}
+
+// convert port to big endian
+func (c *config) UpdatePort(port int) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	buf := make([]byte, 2)
+	binary.BigEndian.PutUint16(buf, uint16(port))
+	c.Port = binary.LittleEndian.Uint16(buf)
+}
+
+func (c *config) UpdateHostname(hostname string) error {
+	c.mu.Lock()
+	c.Hostname = hostname
+	c.mu.Unlock()
+	return c.UpdateAddr()
+}
+
+func (c *config) UpdateAddr() error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	ips, err := net.LookupIP(c.Hostname)
+	if err != nil {
+		return fmt.Errorf("could not lookup hostname: %s", err)
+	}
+	for _, ip := range ips {
+		if ip.To4() != nil {
+			log.Printf("resolved %s to %s", c.Hostname, ips[0].String())
+			binary.Read(bytes.NewBuffer(ips[0].To4()), binary.LittleEndian, &c.Address)
+			return nil
+		}
+	}
+	return fmt.Errorf("ipv6 only host. ipv6 is not supported")
 }

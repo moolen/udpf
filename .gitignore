@@ -1,1 +1,4 @@
 cmd/vendor
+bpf.templated.c
+bpf.o
+udpf

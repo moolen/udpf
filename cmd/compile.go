@@ -1,8 +1,6 @@
 package main
 
 import (
-	"bytes"
-	"encoding/binary"
 	"fmt"
 	"log"
 	"os"
@@ -10,38 +8,44 @@ import (
 	"path"
 	"path/filepath"
 
+	"text/template"
+
 	"github.com/iovisor/gobpf/elf"
 )
 
-func transformBE(input []byte) (output uint32) {
-	binary.Read(bytes.NewBuffer(input), binary.BigEndian, &output)
-	return
-}
+const (
+	bpfSource    = "bpf.c"
+	bpfTemplated = "bpf.templated.c"
+	bpfBytecode  = "bpf.o"
+)
 
 func compile(cfg *config) (*elf.Module, error) {
-	targetAddr, err := cfg.targetAddr()
-	if err != nil {
-		return nil, err
-	}
 	dir, err := filepath.Abs(filepath.Dir(os.Args[0]))
 	if err != nil {
 		return nil, err
 	}
+	f, err := os.OpenFile(path.Join(dir, bpfTemplated), os.O_RDWR|os.O_CREATE, 0644)
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+	// template bpf.c
+	t := template.New("bpf.c")
+	t, _ = t.ParseFiles(path.Join(dir, bpfSource))
+	t.Execute(f, cfg)
+
 	args := []string{
 		// include path
 		fmt.Sprintf("-I%s", dir),
 		fmt.Sprintf("-I%s", path.Join(dir, "include")),
-		// target definitions
-		fmt.Sprintf("-DTARGET_ADDR=%d", targetAddr),
-		fmt.Sprintf("-DUDP_DEST_PORT=%d", cfg.targetPort),
 		"-O2",
 		"-target", "bpf",
 		"-Wall",
 		"-Werror",
 		"-Wno-address-of-packed-member",
 		"-Wno-unknown-warning-option",
-		"-c", bpfSource,
-		"-o", bpfBytecode,
+		"-c", path.Join(dir, bpfTemplated),
+		"-o", path.Join(dir, bpfBytecode),
 	}
 	log.Printf("clang args: %#v", args)
 	// runs in the calling process's current directory.

@@ -30,7 +30,7 @@ $ echo "hello" | nc -c -u 127.0.0.1 8125
 ..check that they're being cloned..
 ```
 $ sudo tcpdump -vvXX -eni any udp port 8125
-15:34:18.416219 52:54:00:64:b4:4a > 52:54:00:23:a4:5c, ethertype IPv4 (0x0800), length 51: 127.0.0.1.56548 > 192.168.122.23.8125: UDP, length 9
+15:34:18.416219 52:54:00:64:b4:4a > 52:54:00:23:a4:5c, ethertype IPv4 (0x0800), length 51: 127.0.0.1.56548 > 172.17.0.2.8125: UDP, length 9
 	0x0000:  5254 0023 a45c 5254 0064 b44a 0800 4500  RT.#.\RT.d.J..E.
 	0x0010:  0025 4000 4000 4011 4107 7f00 0001 c0a8  .%@.@.@.A.......
 	0x0020:  7a17 dce4 1fbd 0011 4f7a 6f6d 6567 616c  z.......Ozomegal
@@ -40,7 +40,7 @@ $ sudo tcpdump -vvXX -eni any udp port 8125
 
 recompile bytecode with new endpoint
 ```
-$ curl -i "http://localhost:8080/recompile?target=reddit.com"
+$ curl -i "http://localhost:8080/reconfigure?target=reddit.com"
 ```
 
 ### Debugging
