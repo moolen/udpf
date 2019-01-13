@@ -19,6 +19,8 @@ Use `make build TARGET=1.2.3.4` to build the go binary aswell as the bpf bytecod
 Build application
 ```
 $ make build
+
+# make sure there's someone at 172.17.0.2
 $ sudo ./udpf -iface lo -target 172.17.0.2
 ```
 
@@ -82,3 +84,17 @@ sudo ethtool --offload <device> rx off tx off ; sudo ethtool -K <device> gso off
 
 * fix fib lookup if neighbor is not known (send packet up the stack)
 * support ipv6
+
+
+## Digging deeper
+
+* Man pages `bpf(2)`, `tc-bpf(8)`
+* everything upstream in kernel, llvm and iproute2
+	* check out linux kernel examples at `samples/bpf`
+	* check out examples from iproute2 at `examples/bpf`
+* data plane programming with `P4`
+	* http://vger.kernel.org/lpc_net2018_talks/p4-xdp-lpc18-paper.pdf
+	* https://github.com/p4lang/p4c
+* linux tc cls-act architecture
+	* https://people.netfilter.org/pablo/netdev0.1/papers/Linux-Traffic-Control-Classifier-Action-Subsystem-Architecture.pdf
+	* https://www.youtube.com/watch?v=cyeJYjZHv5M
