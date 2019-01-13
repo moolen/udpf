@@ -50,6 +50,18 @@ func main() {
 }
 
 func configure() (func(), error) {
+	// FIXME: we need this to populate kernels fib table
+	// it should be somehow possible to do this on the tc layer
+	conn, err := net.Dial("udp", fmt.Sprintf("%s:%d", cfg.Hostname, cfg.Port))
+	if err != nil {
+		return nil, err
+	}
+	defer conn.Close()
+	_, err = conn.Write([]byte("\n"))
+	if err != nil {
+		return nil, err
+	}
+
 	mod, err := compile(cfg)
 	if err != nil {
 		return nil, err

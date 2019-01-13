@@ -92,6 +92,7 @@ sudo ethtool --offload <device> rx off tx off ; sudo ethtool -K <device> gso off
 * everything upstream in kernel, llvm and iproute2
 	* check out linux kernel examples at `samples/bpf`
 	* check out examples from iproute2 at `examples/bpf`
+	* LKML bpf_fib initial impl: https://www.mail-archive.com/netdev@vger.kernel.org/msg231391.html
 * data plane programming with `P4`
 	* http://vger.kernel.org/lpc_net2018_talks/p4-xdp-lpc18-paper.pdf
 	* https://github.com/p4lang/p4c
